@@ -116,9 +116,32 @@ export const checkNode = async () => {
                 const data = response.data;
                 const serverVersion = data.server_version_string;
                 const chainId = data.chain_id;
+                const headBlockDate = new Date(data.head_block_time + 'Z');
+                const currentDate = new Date();
+                const headBlockTime = headBlockDate.getTime();
+                const currentTimeUTC = currentDate.getTime();
+                const timeDifference = Math.abs(currentTimeUTC - headBlockTime);
 
                 if (serverVersion) {
                     logger_log('NODES',`Node: ${node.id}: API node is running ${serverVersion}`);
+
+                    // Check if node is more than 15 seconds off
+                    if (timeDifference > 15000) {
+                        logger_log('NODES',`Node: ${node.id}: Node is ${timeDifference/1000} seconds off. Block time: ${headBlockDate.toISOString()}, Current time: ${currentDate.toISOString()}, Marking as down.`);
+                        await prisma.producerNodes.update({
+                            where: { id: node.id },
+                            data: { status: 'down' }
+                        });
+                        await prisma.apiNodeCheck.create({
+                            data: {
+                                nodeId: node.id,
+                                server_version: serverVersion,
+                                head_block_time: headBlockDate,
+                                status: 10010,
+                            },
+                        });
+                        continue;
+                    }
 
                     // Update server_version in ProducerNode
                     await prisma.producerNodes.update({
@@ -153,7 +176,7 @@ export const checkNode = async () => {
                         data: {
                             nodeId: node.id,
                             server_version: serverVersion,
-                            head_block_time: new Date(data.head_block_time),
+                            head_block_time: headBlockDate,
                             status: response.status,
                         },
                     });
@@ -185,15 +208,15 @@ export const checkNode = async () => {
             }
 
         } catch (error: any) {
-                // Unable to connect or other issues (timeout, DNS issues, etc.)
-                logger_log('NODES',`Node: ${node.id}: API node is not running.`);
-                await prisma.apiNodeCheck.create({
-                    data: {
-                        nodeId: node.id,
-                        server_version: '',
-                        status: 0,
-                    },
-                });
+            // Unable to connect or other issues (timeout, DNS issues, etc.)
+            logger_log('NODES',`Node: ${node.id}: API node is not running.`);
+            await prisma.apiNodeCheck.create({
+                data: {
+                    nodeId: node.id,
+                    server_version: '',
+                    status: 0,
+                },
+            });
             await updateNodeStatus(node.id);
         }
 
