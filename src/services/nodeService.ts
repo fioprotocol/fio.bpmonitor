@@ -48,6 +48,7 @@ export const getNodesQuery = async (
         SELECT
             n.*,
             p.owner,
+            p.total_votes,
             pe.candidate_name,
             pe.location_country,
             s.details AS score_details,
@@ -72,6 +73,7 @@ export const getNodesQuery = async (
         owner: node.owner,
         candidate_name: node.candidate_name,
         chain: node.chain,
+        votes: node.total_votes ? Number(node.total_votes) : 0,
         location_name: node.location_name,
         location_country: node.location_country,
         location_latitude: node.location_latitude,
