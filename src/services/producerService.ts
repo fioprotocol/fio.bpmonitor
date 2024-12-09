@@ -104,6 +104,7 @@ export const getProducersQuery = async (
                 FROM "producerNodes" n
                          LEFT JOIN node_scores ns ON n.id = ns."nodeId"
                 WHERE n."producerId" = p.id
+                AND n.status != 'removed'
             ) AS nodes,
             -- Aggregate branding
             (

@@ -2,7 +2,7 @@
     <h1 class="text-3xl font-bold mb-6">FIO Chain <%= chain %> Block Producers</h1>
     <div class="space-y-4">
         <% producers.forEach((producer, index) => { %>
-            <div x-data="{ showScore: false, showNodes: false }" class="bg-white shadow-md rounded-lg p-4">
+            <div x-data="{ showScore: false, showNodes: false, activeNodeUrl: null }" class="bg-white shadow-md rounded-lg p-4">
                 <div class="entity-entry">
                     <div class="logo-number-container">
                         <div class="numbered-circle">
@@ -109,16 +109,16 @@
                                 <td>
                                     <% if (node.score && typeof node.score === 'object' && 'grade' in node.score) { %>
                                         <%= node.score.grade %> (<%= node.score.score %>/<%= node.score.max_score %>)
-                                        <button @click="$refs.nodeScore<%= node.id %>.style.display = $refs.nodeScore<%= node.id %>.style.display === 'none' ? 'table-row' : 'none'" class="ml-2 text-blue-500 underline">SCORE</button>
+                                        <button @click="activeNodeUrl = activeNodeUrl === '<%= node.url %>' ? null : '<%= node.url %>'" class="ml-2 text-blue-500 underline">SCORE</button>
                                     <% } else { %>
                                         N/A
                                     <% } %>
                                 </td>
                             </tr>
                             <% if (node.score && typeof node.score === 'object' && 'details' in node.score) { %>
-                                <tr x-ref="nodeScore<%= node.id %>" style="display: none;">
+                                <tr x-show="activeNodeUrl === '<%= node.url %>'">
                                     <td colspan="5">
-                                        <table class="w-full bg-gray-100">
+                                        <table class="w-full">
                                             <thead>
                                             <tr>
                                                 <th class="text-left">Metric</th>
