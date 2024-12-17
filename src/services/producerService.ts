@@ -284,14 +284,23 @@ export async function fetchProducers() {
                 const status = is_active === 1 ? 'active' : 'inactive';
                 const processedVotes = processTotalVotes(producer.total_votes);
 
-                // Check FIO address validity
+                // Check FIO address validity, including expired domain
                 let fio_address_valid = true;
                 try {
-                    const availCheckResponse = await axios.post(`${apiUrl}/v1/chain/avail_check`, {
-                        fio_name: producer.fio_address
+                    await axios.post(`${apiUrl}/v1/chain/get_pub_address`, {
+                        fio_address: producer.fio_address,
+                        chain_code: 'FIO',
+                        token_code: 'FIO'
                     });
-                    fio_address_valid = availCheckResponse.data.is_registered === 1;
                 } catch (error) {
+                    if (axios.isAxiosError(error) &&
+                        error.response?.status === 400 &&
+                        error.response.data?.fields?.some((field: any) =>
+                            field.name === 'fio_address' &&
+                            field.error === 'Invalid FIO Address'
+                        )) {
+                        fio_address_valid = false;
+                    }
                     logger_error('PRODUCERS', `Error checking FIO address validity for ${chain} producer ${chain_table_id}:`, error);
                 }
 
