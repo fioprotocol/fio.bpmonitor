@@ -293,13 +293,16 @@ export async function fetchProducers() {
                         token_code: 'FIO'
                     });
                 } catch (error) {
-                    if (axios.isAxiosError(error) &&
-                        error.response?.status === 400 &&
-                        error.response.data?.fields?.some((field: any) =>
-                            field.name === 'fio_address' &&
-                            field.error === 'Invalid FIO Address'
-                        )) {
-                        fio_address_valid = false;
+                    if (axios.isAxiosError(error)) {
+                        if ((error.response?.status === 404 &&
+                                error.response.data?.message === "Public address not found") ||
+                            (error.response?.status === 400 &&
+                                error.response.data?.fields?.some((field: any) =>
+                                    field.name === 'fio_address' &&
+                                    field.error === 'Invalid FIO Address'
+                                ))) {
+                            fio_address_valid = false;
+                        }
                     }
                     logger_error('PRODUCERS', `Error checking FIO address validity for ${chain} producer ${chain_table_id}:`, error);
                 }

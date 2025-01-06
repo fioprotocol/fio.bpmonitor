@@ -30,7 +30,7 @@
                             <p class="text-gray-600"><%= producer.fio_address %></p>
                         <% } else { %>
                             <p class="text-red-600">
-                                <%= producer.fio_address %> - this handle does not exist, voting for this BP is not possible!
+                                <%= producer.fio_address %> - this handle is not valid, voting for this BP is not possible!
                             </p>
                         <% } %>
                         <p class="text-blue-600 font-semibold"><%= producer.total_votes.toLocaleString() %></p>
