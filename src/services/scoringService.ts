@@ -265,7 +265,6 @@ export async function calculateNodeScores() {
 
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-        // Modified query to include the max results for each node
         const nodes = await prisma.producerNodes.findMany({
             where: {
                 status: 'active',
@@ -279,6 +278,18 @@ export async function calculateNodeScores() {
                     },
                     orderBy: {
                         results: 'desc'
+                    },
+                    take: 1
+                },
+                apiBurstChecks: {
+                    orderBy: {
+                        time_stamp: 'desc'
+                    },
+                    take: 3
+                },
+                apiNodeChecks: {
+                    orderBy: {
+                        time_stamp: 'desc'
                     },
                     take: 1
                 }
@@ -347,6 +358,14 @@ async function calculateNodeScore(
         },
         no_recent_outage: {
             status: await checkNoRecentOutage(node.id),
+            score: 0
+        },
+        supports_burst: {
+            status: checkBurstSupport(node.apiBurstChecks),
+            score: 0
+        },
+        supports_cors: {
+            status: node.apiNodeChecks?.[0]?.cors ?? false,
             score: 0
         }
     };
@@ -689,4 +708,12 @@ async function saveNodeScore(nodeId: number, scoreData: any) {
     } catch (error) {
         logger_error('SCORING', `Catch all error in saveNodeScore() for node ${nodeId}:`, error);
     }
+}
+
+// Checks last 3 burst checks
+function checkBurstSupport(burstChecks: any[]): boolean {
+    if (burstChecks.length < 3) {
+        return false;
+    }
+    return burstChecks.every(check => check.status);
 }

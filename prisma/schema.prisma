@@ -94,6 +94,7 @@ model producerNodes {
   producer           producer        @relation(fields: [producerId], references: [id], onDelete: Cascade)
   apiNodeChecks      apiNodeCheck[]
   apiFetchChecks     apiFetchCheck[]
+  apiBurstChecks     apiBurstCheck[]
   nodeScores         nodeScores[]
 
   @@index([producerId, status])
@@ -107,6 +108,7 @@ model apiNodeCheck {
   nodeId          Int
   server_version  String?
   head_block_time DateTime?
+  cors            Boolean       @default(false)
   status          Int
   producerNode    producerNodes @relation(fields: [nodeId], references: [id], onDelete: Cascade)
 
@@ -118,6 +120,18 @@ model apiFetchCheck {
   time_stamp   DateTime      @default(now())
   nodeId       Int
   results      Int
+  producerNode producerNodes @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@index([nodeId, time_stamp])
+}
+
+model apiBurstCheck {
+  id           Int           @id @default(autoincrement())
+  time_stamp   DateTime      @default(now())
+  nodeId       Int
+  status       Boolean
+  burstTarget  Int
+  burstResult  Int
   producerNode producerNodes @relation(fields: [nodeId], references: [id], onDelete: Cascade)
 
   @@index([nodeId, time_stamp])

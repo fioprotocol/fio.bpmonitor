@@ -123,6 +123,7 @@ export const checkNode = async () => {
                 const headBlockTime = headBlockDate.getTime();
                 const currentTimeUTC = currentDate.getTime();
                 const timeDifference = Math.abs(currentTimeUTC - headBlockTime);
+                const cors = await checkCorsHeaders(response.headers, node.id, node.url);
 
                 if (serverVersion) {
                     logger_log('NODES',`Node: ${node.id}: API node is running ${serverVersion}`);
@@ -139,6 +140,7 @@ export const checkNode = async () => {
                                 nodeId: node.id,
                                 server_version: serverVersion,
                                 head_block_time: headBlockDate,
+                                cors: cors,
                                 status: 10010,
                             },
                         });
@@ -167,6 +169,7 @@ export const checkNode = async () => {
                         await prisma.apiNodeCheck.create({
                             data: {
                                 nodeId: node.id,
+                                cors: cors,
                                 status: 10000,
                             },
                         });
@@ -179,18 +182,23 @@ export const checkNode = async () => {
                             nodeId: node.id,
                             server_version: serverVersion,
                             head_block_time: headBlockDate,
+                            cors: cors,
                             status: response.status,
                         },
                     });
 
                     // Perform fetch check
                     await checkNodeFetch(node.id, node.url);
+
+                    // Perform burst check
+                    await checkBurstFetch(node.id, node.url);
                 } else {
                     logger_log('NODES',`Node: ${node.id}: API node response received, but server version not found.`);
                     await prisma.apiNodeCheck.create({
                         data: {
                             nodeId: node.id,
                             server_version: '',
+                            cors: cors,
                             status: 0,
                         },
                     });
@@ -198,11 +206,12 @@ export const checkNode = async () => {
                 }
             } else {
                 // Handle non-200 response
-                logger_log('NODES',`Node: ${node.id}: API node is not running`);
+                logger_log('NODES',`Node: ${node.id}: API node is not running. Status code: ${response.status}`);
                 await prisma.apiNodeCheck.create({
                     data: {
                         nodeId: node.id,
                         server_version: '',
+                        cors: false,
                         status: response.status,
                     },
                 });
@@ -211,11 +220,12 @@ export const checkNode = async () => {
 
         } catch (error: any) {
             // Unable to connect or other issues (timeout, DNS issues, etc.)
-            logger_log('NODES',`Node: ${node.id}: API node is not running.`);
+            logger_log('NODES',`Node: ${node.id}: API node is not running. Generic error.`);
             await prisma.apiNodeCheck.create({
                 data: {
                     nodeId: node.id,
                     server_version: '',
+                    cors: false,
                     status: 0,
                 },
             });
@@ -344,5 +354,118 @@ async function checkNodeFetch(nodeId: number, url: string) {
         } else {
             logger_log('NODES', `Node: ${nodeId}: Fetch check failed. Unknown error occurred.`);
         }
+    }
+}
+
+// Checks node for ability to accept burst of API calls
+async function checkBurstFetch(nodeId: number, url: string) {
+    try {
+        const burstTarget = config.node_burst_check_count;
+        const pubKey = config.node_burst_check_pub_key;
+        const requestBody = {
+            fio_public_key: pubKey
+        };
+
+        // Create array of promises for concurrent requests
+        const requests = Array(burstTarget).fill(null).map(() =>
+            axios.post(`${url}/v1/chain/get_fio_balance`, requestBody, {
+                timeout: config.node_check_timeout
+            })
+                .then(response => {
+                    // Check if response has valid format
+                    if (response.status === 200 &&
+                        response.data &&
+                        typeof response.data.balance === 'number' &&
+                        typeof response.data.available === 'number' &&
+                        typeof response.data.staked === 'number' &&
+                        typeof response.data.srps === 'number' &&
+                        typeof response.data.roe === 'string') {
+                        return true;
+                    }
+                    return false;
+                })
+                .catch(() => false) // Any error (including 429) counts as failed request
+        );
+
+        // Execute all requests concurrently
+        const results = await Promise.all(requests);
+        const successCount = results.filter(result => result).length;
+
+        // Store results
+        await prisma.apiBurstCheck.create({
+            data: {
+                nodeId,
+                status: successCount === burstTarget,
+                burstTarget,
+                burstResult: successCount
+            }
+        });
+
+        logger_log('NODES', `Node: ${nodeId}: Burst check completed. Successful responses: ${successCount}/${burstTarget}`);
+    } catch (error: unknown) {
+        await prisma.apiBurstCheck.create({
+            data: {
+                nodeId,
+                status: false,
+                burstTarget: config.node_burst_check_count,
+                burstResult: 0
+            }
+        });
+        if (error instanceof Error) {
+            logger_log('NODES', `Node: ${nodeId}: Burst check catastrophically failed. Error: ${error.message}`);
+        } else {
+            logger_log('NODES', `Node: ${nodeId}: Burst check catastrophically failed. Unknown error occurred.`);
+        }
+    }
+}
+
+// Check CORS headers from both GET and OPTIONS requests
+async function checkCorsHeaders(headers: any, nodeId: number, baseUrl: string): Promise<boolean> {
+    try {
+        // Check GET headers from the initial request
+        const getOrigin = headers['access-control-allow-origin'];
+        const getEnabled = getOrigin === '*';
+
+        // Test both GET and POST endpoints with OPTIONS preflight
+        const [optionsGetResponse, optionsPostResponse] = await Promise.all([
+            axios.options(`${baseUrl}/v1/chain/get_info`, {
+                headers: {
+                    'Origin': 'http://test.com',
+                    'Access-Control-Request-Method': 'GET',
+                    'Access-Control-Request-Headers': 'content-type'
+                }
+            }),
+            axios.options(`${baseUrl}/v1/chain/get_fio_balance`, {
+                headers: {
+                    'Origin': 'http://test.com',
+                    'Access-Control-Request-Method': 'POST',
+                    'Access-Control-Request-Headers': 'content-type,accept'
+                }
+            })
+        ]);
+
+        // Check CORS headers for both responses
+        const getOptionsOrigin = optionsGetResponse.headers['access-control-allow-origin'];
+        const postOptionsOrigin = optionsPostResponse.headers['access-control-allow-origin'];
+        const getOptionsAllowHeaders = optionsGetResponse.headers['access-control-allow-headers'];
+        const postOptionsAllowHeaders = optionsPostResponse.headers['access-control-allow-headers'];
+
+        // Check if content-type is allowed in headers for both methods
+        const contentTypeAllowed = (header: string | undefined): boolean =>
+            header?.toLowerCase().split(',').some((h: string): boolean =>
+                h.trim() === 'content-type' || h.trim() === '*'
+            ) || false;
+
+        const getEnabled_Options = getOptionsOrigin === '*' && contentTypeAllowed(getOptionsAllowHeaders);
+        const postEnabled_Options = postOptionsOrigin === '*' && contentTypeAllowed(postOptionsAllowHeaders);
+        const optionsEnabled = getEnabled_Options && postEnabled_Options;
+
+        const corsEnabled = getEnabled && optionsEnabled;
+
+        logger_log('NODES', `Node: ${nodeId}: CORS check completed: ${corsEnabled} (GET: ${getEnabled}, OPTIONS-GET: ${getEnabled_Options}, OPTIONS-POST: ${postEnabled_Options})`);
+        return corsEnabled;
+    } catch (error) {
+        logger_log('NODES', `Node: ${nodeId}: CORS check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        return false;
     }
 }

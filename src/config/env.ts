@@ -11,6 +11,8 @@ export const config = {
     loggingLevel: process.env.LOGGING_LEVEL || 'error',// error or info
     json_fetch_timeout: Number(process.env.JSON_FETCH_TIMEOUT) || 5000,
     node_check_timeout: Number(process.env.NODE_CHECK_TIMEOUT) || 10000,
+    node_burst_check_count: Number(process.env.NODE_BURST_CHECK_COUNT) || 25,
+    node_burst_check_pub_key: process.env.NODE_BURST_CHECK_PUB_KEY || "FIO7WUm6fWGeqHeP9DPriPemdtY1eWZRG9VAhDEWuEX46whAQYLA6",
     mainnetApiUrl: process.env.MAINNET_API_URL || "https://api.fiosweden.org",// Must run Hyperion
     testnetApiUrl: process.env.TESTNET_API_URL || "https://api.testnet.fiosweden.org",// Must run Hyperion
     mainnetChainId: process.env.MAINNET_CHAIN_ID || "21dcae42c0182200e93f954a074011f9048a7624c6fe81d3c9541a614a88bd1c",
@@ -40,7 +42,9 @@ export const config = {
         '"results_a":10,' +
         '"results_b":20,' +
         '"results_c":30,' +
-        '"no_recent_outage":30' +
+        '"no_recent_outage":30,' +
+        '"supports_burst":30,' +
+        '"supports_cors":30' +
         '}'),
     producerScoringPenalties: JSON.parse(process.env.PRODUCER_SCORING_PENALTIES || '{' +
         '"valid_fio_address":-50,' +
@@ -95,5 +99,7 @@ export const scoreDescriptions: { [key: string]: string } = {
     runs_tools: "Runs <a href='https://github.com/fioprotocol/fio.bpmonitor/blob/master/bptools.md'>tools for community</a>",
     participates_in_testnet: "For Mainnet BPs, if they have a <a href='https://github.com/fioprotocol/fio.bpmonitor/blob/master/bpchainmap.md'>mapped Testnet BP</a>, the score of that BP is represented.",
     valid_fio_address: "Has valid and unexpired FIO Handle.",
-    no_missing_blocks: "Has not missed any blocks in last 7 days."
+    no_missing_blocks: "Has not missed any blocks in last 7 days.",
+    supports_burst: "Supports 25 burst connections.",
+    supports_cors: "CORS allowOrigin is *"
 };
