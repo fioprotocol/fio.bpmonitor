@@ -66,7 +66,7 @@ export const config = {
         '"D-": [41, 45],' +
         '"F": [0, 40]' +
         '}'),
-    resultPercentiles: JSON.parse(process.env.RESULT_PERCENTILES || '{"results_a":75,"results_b":50,"results_c":25}'),
+    resultPercentiles: JSON.parse(process.env.RESULT_PERCENTILES || '{"results_a":25,"results_b":50,"results_c":75}'),
     evaluate_msigs_count: parseInt(process.env.EVALUATE_MSIGS_COUNT || '25', 10),
     evaluate_msigs_percent: parseInt(process.env.EVALUATE_MSIGS_PERCENT || '75', 10),
     evaluate_msigs_time: parseInt(process.env.EVALUATE_MSIGS_PERCENT || '7', 10),
@@ -87,9 +87,9 @@ export const scoreDescriptions: { [key: string]: string } = {
     api_node_score: "Average score for all nodes, see nodes for details",
     runs_history_node: "Last call to V1 History node was successful",
     runs_hyperion_node: "Last call to V2 History node was successful",
-    results_a: "<a href='https://github.com/fioprotocol/fio.bpmonitor/blob/bb2f723b6bbd7d16694884c01e038e7a4eb4d85c/src/services/nodeService.ts#L225'>API query</a> average result count in 75th percentile in last 7 days",
+    results_a: "<a href='https://github.com/fioprotocol/fio.bpmonitor/blob/bb2f723b6bbd7d16694884c01e038e7a4eb4d85c/src/services/nodeService.ts#L225'>API query</a> average result count in 25th percentile in last 7 days",
     results_b: "<a href='https://github.com/fioprotocol/fio.bpmonitor/blob/bb2f723b6bbd7d16694884c01e038e7a4eb4d85c/src/services/nodeService.ts#L225'>API query</a> average result count in 50th percentile in last 7 days",
-    results_c: "<a href='https://github.com/fioprotocol/fio.bpmonitor/blob/bb2f723b6bbd7d16694884c01e038e7a4eb4d85c/src/services/nodeService.ts#L225'>API query</a> average result count in 25th percentile in last 7 days",
+    results_c: "<a href='https://github.com/fioprotocol/fio.bpmonitor/blob/bb2f723b6bbd7d16694884c01e038e7a4eb4d85c/src/services/nodeService.ts#L225'>API query</a> average result count in 75th percentile in last 7 days",
     no_recent_outage: "No node outages in last 7 days.",
     fee_votes: "<a href='https://dev.fio.net/docs/setting-fees#setting-fees'>Votes on fees</a>",
     fee_voted_recently: "<a href='https://dev.fio.net/docs/setting-fees#setting-fees'>Votes on fees</a> in last 30 days",
