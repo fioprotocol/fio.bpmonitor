@@ -8,6 +8,7 @@ import { calculateNodeScores, calculateProducerScores } from '../services/scorin
 import { logger_log, logger_error } from './logger';
 import { triggerToolsFetch } from "../services/toolsService";
 import { triggerProducerChainMap } from "../services/chainMapService";
+import {fetchVoters} from "../services/voterService";
 
 // Refresh Producers from chain
 cron.schedule('1 1 * * *', async () => {
@@ -25,22 +26,8 @@ cron.schedule('1 1 * * *', async () => {
     }
 });
 
-// Check Producer Nodes
-cron.schedule('11 */4 * * *', async () => {
-    try {
-        await checkNode();
-        logger_log('CRON','checkNode ran successfully.');
-    } catch (error) {
-        if (error instanceof Error) {
-            logger_error('CRON',`checkNode job failed.`, error);
-        } else {
-            logger_log('CRON','checkNode job failed with an unknown error.');
-        }
-    }
-});
-
 // Check Producer Fee votes
-cron.schedule('26 1 * * *', async () => {
+cron.schedule('11 1 * * *', async () => {
     try {
         await triggerFeeMultiplierFetch();
         logger_log('CRON', 'fetchAndUpdateFees ran successfully.');
@@ -56,7 +43,7 @@ cron.schedule('26 1 * * *', async () => {
 });
 
 // Check Producer msig participation
-cron.schedule('28 1 * * *', async () => {
+cron.schedule('13 1 * * *', async () => {
     try {
         await fetchProposals();
         logger_log('CRON', 'fetchProposals ran successfully.');
@@ -70,7 +57,7 @@ cron.schedule('28 1 * * *', async () => {
 });
 
 // Fetch BP Tools
-cron.schedule('30 1 * * *', async () => {
+cron.schedule('15 1 * * *', async () => {
     try {
         await triggerToolsFetch();
         logger_log('CRON', 'fetchAndUpdateProducerTools ran successfully.');
@@ -84,7 +71,7 @@ cron.schedule('30 1 * * *', async () => {
 });
 
 // Fetch Chain Map
-cron.schedule('32 1 * * *', async () => {
+cron.schedule('17 1 * * *', async () => {
     try {
         await triggerProducerChainMap();
         logger_log('CRON', 'triggerProducerChainMap ran successfully.');
@@ -97,8 +84,22 @@ cron.schedule('32 1 * * *', async () => {
     }
 });
 
+// Check Producer Nodes
+cron.schedule('19 * * * *', async () => {
+    try {
+        await checkNode();
+        logger_log('CRON','checkNode ran successfully.');
+    } catch (error) {
+        if (error instanceof Error) {
+            logger_error('CRON',`checkNode job failed.`, error);
+        } else {
+            logger_log('CRON','checkNode job failed with an unknown error.');
+        }
+    }
+});
+
 // Calculate Node Scores
-cron.schedule('34 */4 * * *', async () => {
+cron.schedule('34 * * * *', async () => {
     try {
         await calculateNodeScores();
         logger_log('CRON', 'calculateNodeScores ran successfully.');
@@ -112,7 +113,7 @@ cron.schedule('34 */4 * * *', async () => {
 });
 
 // Calculate Producer Scores
-cron.schedule('36 */4 * * *', async () => {
+cron.schedule('36 * * * *', async () => {
     try {
         await calculateProducerScores();
         logger_log('CRON', 'calculateProducerScores ran successfully.');
@@ -121,6 +122,20 @@ cron.schedule('36 */4 * * *', async () => {
             logger_error('CRON', `calculateProducerScores job failed.`, error);
         } else {
             logger_log('CRON', 'calculateProducerScores job failed with an unknown error.');
+        }
+    }
+});
+
+// Process Voters
+cron.schedule('38 * * * *', async () => {
+    try {
+        await fetchVoters();
+        logger_log('CRON', 'fetchVoters ran successfully.');
+    } catch (error) {
+        if (error instanceof Error) {
+            logger_error('CRON', `fetchVoters job failed.`, error);
+        } else {
+            logger_log('CRON', 'fetchVoters job failed with an unknown error.');
         }
     }
 });

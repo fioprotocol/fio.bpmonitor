@@ -1,7 +1,7 @@
 import { prisma } from '../config/database';
 import { Prisma } from '@prisma/client';
 import { config } from '../config/env';
-import { formatUrl, urlJoin, processTotalVotes, getFullBaseUrl } from "../utils/helpers";
+import { formatUrl, urlJoin, processTotalVotes, getFullBaseUrl, isFioAddressValid  } from "../utils/helpers";
 import { logger_log, logger_error } from '../utils/logger';
 import axios from 'axios';
 
@@ -37,6 +37,7 @@ export const getProducersQuery = async (
 
     const limitClause = limit ? Prisma.sql`LIMIT ${limit}` : Prisma.empty;
 
+// In getProducersQuery function within producerService.ts, update the SQL query to include votes data
     const producers = await prisma.$queryRaw<any[]>(Prisma.sql`
         WITH node_scores AS (
             SELECT
@@ -76,63 +77,70 @@ export const getProducersQuery = async (
             bv.lastvotetimestamp,
             fm.multiplier AS fee_multiplier,
             fm.last_vote AS fee_multiplier_last_vote,
-            -- Aggregate socials
+            -- Aggregate votes
             (
-                SELECT json_agg(json_build_object('type', soc.type, 'handle', soc.handle))
-                FROM "producerSocials" soc
-                WHERE soc."producerId" = p.id
-            ) AS socials,
-            -- Aggregate nodes with scores
-            (
-                SELECT json_agg(json_build_object(
-                        'type', n.type,
-                        'location_name', n.location_name,
-                        'location_country', n.location_country,
-                        'location_latitude', n.location_latitude,
-                        'location_longitude', n.location_longitude,
-                        'url', n.url,
-                        'api', n.api,
-                        'historyV1', n."historyV1",
-                        'hyperion', n.hyperion,
-                        'server_version', n.server_version,
-                        'status', n.status,
-                        'score', CASE
-                                     WHEN n.api = true THEN ns.score_data
-                                     ELSE '[]'::json
-                            END
-                                ))
-                FROM "producerNodes" n
-                         LEFT JOIN node_scores ns ON n.id = ns."nodeId"
-                WHERE n."producerId" = p.id
-                AND n.status != 'removed'
-            ) AS nodes,
-            -- Aggregate branding
-            (
-                SELECT json_agg(json_build_object('type', b.type, 'url', b.url))
-                FROM "producerBranding" b
-                WHERE b."producerId" = p.id
-            ) AS branding,
-            -- Aggregate feeVotes
-            (
-                SELECT json_agg(json_build_object('end_point', fv.end_point, 'value', fv.value, 'last_vote', fv.last_vote))
-                FROM "producerFeeVotes" fv
-                WHERE fv."producerId" = p.id
-            ) AS fee_votes,
-            -- Aggregate tools
-            (
-                SELECT json_agg(json_build_object('toolName', t."toolName", 'toolUrl', t."toolUrl"))
-                FROM "producerTools" t
-                WHERE t."producerId" = p.id
-            ) AS tools
+                SELECT voters
+                FROM "producerVotes" pv
+                WHERE pv."producerId" = p.id
+                LIMIT 1
+            ) AS votes,
+        -- Aggregate socials
+        (
+            SELECT json_agg(json_build_object('type', soc.type, 'handle', soc.handle))
+            FROM "producerSocials" soc
+            WHERE soc."producerId" = p.id
+        ) AS socials,
+        -- Aggregate nodes with scores
+        (
+            SELECT json_agg(json_build_object(
+                    'type', n.type,
+                    'location_name', n.location_name,
+                    'location_country', n.location_country,
+                    'location_latitude', n.location_latitude,
+                    'location_longitude', n.location_longitude,
+                    'url', n.url,
+                    'api', n.api,
+                    'historyV1', n."historyV1",
+                    'hyperion', n.hyperion,
+                    'server_version', n.server_version,
+                    'status', n.status,
+                    'score', CASE
+                                 WHEN n.api = true THEN ns.score_data
+                                 ELSE '[]'::json
+                        END
+                            ))
+            FROM "producerNodes" n
+                     LEFT JOIN node_scores ns ON n.id = ns."nodeId"
+            WHERE n."producerId" = p.id
+            AND n.status != 'removed'
+        ) AS nodes,
+        -- Aggregate branding
+        (
+            SELECT json_agg(json_build_object('type', b.type, 'url', b.url))
+            FROM "producerBranding" b
+            WHERE b."producerId" = p.id
+        ) AS branding,
+        -- Aggregate feeVotes
+        (
+            SELECT json_agg(json_build_object('end_point', fv.end_point, 'value', fv.value, 'last_vote', fv.last_vote))
+            FROM "producerFeeVotes" fv
+            WHERE fv."producerId" = p.id
+        ) AS fee_votes,
+        -- Aggregate tools
+        (
+            SELECT json_agg(json_build_object('toolName', t."toolName", 'toolUrl', t."toolUrl"))
+            FROM "producerTools" t
+            WHERE t."producerId" = p.id
+        ) AS tools
         FROM "producer" p
-                 LEFT JOIN "producerExtendedData" ed ON p.id = ed."producerId"
-                 LEFT JOIN LATERAL (
+            LEFT JOIN "producerExtendedData" ed ON p.id = ed."producerId"
+            LEFT JOIN LATERAL (
             SELECT *
             FROM "producerScores" s
             WHERE s."producerId" = p.id
             ORDER BY s.time_stamp DESC
-                LIMIT 1
-    ) s ON true
+            LIMIT 1
+            ) s ON true
             LEFT JOIN "producerBundleVotes" bv ON bv."producerId" = p.id
             LEFT JOIN "producerFeeMultiplier" fm ON fm."producerId" = p.id
         WHERE
@@ -179,6 +187,8 @@ export const getProducersQuery = async (
             flagIconUrl: producer.location_country
                 ? `${getFullBaseUrl()}/flags/${producer.location_country.toLowerCase()}.svg`
                 : null,
+            // Votes
+            votes: producer.votes || [],
             // Socials
             socials: socials.reduce((acc: Socials, social: any) => {
                 if (social.type && social.handle) {
@@ -285,28 +295,9 @@ export async function fetchProducers() {
                 const processedVotes = processTotalVotes(producer.total_votes);
 
                 // Check FIO address validity, including expired domain
-                let fio_address_valid = true;
-                try {
-                    await axios.post(`${apiUrl}/v1/chain/get_pub_address`, {
-                        fio_address: producer.fio_address,
-                        chain_code: 'FIO',
-                        token_code: 'FIO'
-                    });
-                } catch (error) {
-                    if (axios.isAxiosError(error)) {
-                        if ((error.response?.status === 404 &&
-                                error.response.data?.message === "Public address not found") ||
-                            (error.response?.status === 400 &&
-                                error.response.data?.fields?.some((field: any) =>
-                                    field.name === 'fio_address' &&
-                                    field.error === 'Invalid FIO Address'
-                                ))) {
-                            fio_address_valid = false;
-                        }
-                    }
-                    logger_error('PRODUCERS', `Error checking FIO address validity for ${chain} producer ${chain_table_id}:`, error);
-                }
+                let fio_address_valid = await isFioAddressValid(producer.fio_address, apiUrl);
 
+                // Find existing producer
                 const existingProducer = await prisma.producer.findUnique({
                     where: {
                         chain_chain_table_id: {
@@ -316,6 +307,7 @@ export async function fetchProducers() {
                     },
                 });
 
+                // Update producer info
                 await prisma.producer.upsert({
                     where: {
                         chain_chain_table_id: {

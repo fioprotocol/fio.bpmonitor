@@ -7,6 +7,7 @@ import { calculateNodeScores, calculateProducerScores } from '../services/scorin
 import { logger_log, logger_error } from './logger';
 import { triggerToolsFetch } from "../services/toolsService";
 import { triggerProducerChainMap } from "../services/chainMapService";
+import {fetchVoters} from "../services/voterService";
 
 // Initial build of db
 export async function initialBuild() {
@@ -21,18 +22,19 @@ export async function initialBuild() {
         { name: 'triggerProducerChainMap', func: triggerProducerChainMap },
         { name: 'calculateNodeScores', func: calculateNodeScores },
         { name: 'calculateProducerScores', func: calculateProducerScores },
-        { name: 'calculateProducerScores', func: calculateProducerScores }
+        { name: 'calculateProducerScores', func: calculateProducerScores },
+        { name: 'fetchVoters', func: fetchVoters }
     ];
 
     for (const process of processes) {
         try {
             await process.func();
-            logger_log('INITIAL BUILD', `${process.name} ran successfully.`);
+            logger_log('INITIAL_BUILD', `${process.name} ran successfully.`);
         } catch (error) {
             if (error instanceof Error) {
-                logger_error('INITIAL BUILD', `${process.name} failed.`, error);
+                logger_error('INITIAL_BUILD', `${process.name} failed.`, error);
             } else {
-                logger_log('INITIAL BUILD', `${process.name} failed with an unknown error.`);
+                logger_log('INITIAL_BUILD', `${process.name} failed with an unknown error.`);
             }
         }
     }

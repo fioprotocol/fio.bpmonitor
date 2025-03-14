@@ -32,6 +32,7 @@ model producer {
   bundleVotes         producerBundleVotes?
   scores              producerScores[]
   tools               producerTools[]
+  votes               producerVotes[]
 
   @@unique([chain, chain_table_id])
   @@index([owner])
@@ -230,4 +231,25 @@ model ProducerChainMap {
   @@unique([mainnetProducer, testnetProducer])
   @@index([mainnetProducer])
   @@index([testnetProducer])
+}
+
+model producerVotes {
+  id         Int      @id @default(autoincrement())
+  producerId Int
+  voters     Json
+  producer   producer @relation(fields: [producerId], references: [id], onDelete: Cascade)
+
+  @@index([producerId])
+}
+
+model proxies {
+  id          Int     @id @default(autoincrement())
+  owner       String
+  fio_address String?
+  chain       String
+  vote        Json
+  delegators  Json
+
+  @@index([chain])
+  @@index([owner])
 }

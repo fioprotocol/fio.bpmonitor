@@ -1,6 +1,7 @@
 // Helper functions
-import { JsonValue } from '@prisma/client/runtime/library';
 import { config } from '../config/env';
+import axios from 'axios';
+import crypto from 'crypto';
 
 // Function to get the full base URL
 export const getFullBaseUrl = () => {
@@ -41,16 +42,35 @@ export function processTotalVotes(votesString: string): number {
     return Math.floor(votesNumber / 1000000000);
 }
 
-// Safe handle json
-export function parseJsonValue(value: JsonValue): Array<{ actor: string, time?: string }> {
-    if (typeof value === 'object' && value !== null) {
-        return Object.keys(value).map(key => {
-            try {
-                return JSON.parse(key);
-            } catch {
-                return { actor: '' };
-            }
-        }).filter(item => item && typeof item.actor === 'string');
+// Generate SHA-1 hash for FIO Handle
+function nameHash(name: string): string {
+    const hash = crypto.createHash('sha1');
+    return '0x' + hash.update(name).digest().slice(0, 16).reverse().toString('hex');
+}
+
+// Checks if FIO Handle is valid
+export async function isFioAddressValid(fio_address: string, apiUrl: string): Promise<boolean> {
+    if (!fio_address) return false;
+
+    try {
+        const addressHash = nameHash(fio_address);
+
+        const response = await axios.post(`${apiUrl}/v1/chain/get_table_rows`, {
+            json: true,
+            code: "fio.address",
+            scope: "fio.address",
+            table: "fionames",
+            lower_bound: addressHash,
+            upper_bound: addressHash,
+            index_position: 5,
+            key_type: "i128"
+        });
+
+        // If we get rows back, the address is valid
+        return response.data.rows && response.data.rows.length > 0;
+    } catch (error) {
+        // If there's any error in the request, consider it valid
+        // This is to prevent valid addresses from being marked invalid due to API issues
+        return true;
     }
-    return [];
 }

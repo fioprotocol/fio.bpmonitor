@@ -186,12 +186,6 @@ export const checkNode = async () => {
                             status: response.status,
                         },
                     });
-
-                    // Perform fetch check
-                    await checkNodeFetch(node.id, node.url);
-
-                    // Perform burst check
-                    await checkBurstFetch(node.id, node.url);
                 } else {
                     logger_log('NODES',`Node: ${node.id}: API node response received, but server version not found.`);
                     await prisma.apiNodeCheck.create({
@@ -294,6 +288,12 @@ export const checkNode = async () => {
                 data: { hyperion: false },
             });
         }
+
+        // Perform fetch check
+        await checkNodeFetch(node.id, node.url);
+
+        // Perform burst check
+        await checkBurstFetch(node.id, node.url);
     }
     logger_log('NODES',`Node checks complete.`)
 };
