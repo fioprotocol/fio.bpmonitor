@@ -78,3 +78,4 @@ pm2 start dist/app.js --name bpmonitor
 |Get Bundles|/api/bundles|chain:testnet/mainnet|
 |Get Proposals|/api/proposal|chain:testnet/mainnet|
 |Get Scores|/api/scores|producerId: number|
+|Get Proxies|/api/proxies|chain:testnet/mainnet|
