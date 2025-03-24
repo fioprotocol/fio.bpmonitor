@@ -53,9 +53,10 @@ export async function isFioAddressValid(fio_address: string, apiUrl: string): Pr
     if (!fio_address) return false;
 
     try {
+        // Step 1: Check if FIO Handle exists
         const addressHash = nameHash(fio_address);
 
-        const response = await axios.post(`${apiUrl}/v1/chain/get_table_rows`, {
+        const addressResponse = await axios.post(`${apiUrl}/v1/chain/get_table_rows`, {
             json: true,
             code: "fio.address",
             scope: "fio.address",
@@ -66,8 +67,42 @@ export async function isFioAddressValid(fio_address: string, apiUrl: string): Pr
             key_type: "i128"
         });
 
-        // If we get rows back, the address is valid
-        return response.data.rows && response.data.rows.length > 0;
+        // If FIO Handle doesn't exist, return false
+        if (!addressResponse.data.rows || addressResponse.data.rows.length === 0) {
+            return false;
+        }
+
+        // Step 2: Extract domain part (after @)
+        const domainParts = fio_address.split('@');
+        if (domainParts.length !== 2) {
+            return false; // Invalid FIO Handle format
+        }
+        const domain = domainParts[1];
+
+        // Step 3: Hash the domain
+        const domainHash = nameHash(domain);
+
+        // Step 4: Check if domain exists and is not expired
+        const domainResponse = await axios.post(`${apiUrl}/v1/chain/get_table_rows`, {
+            json: true,
+            code: "fio.address",
+            scope: "fio.address",
+            table: "domains",
+            lower_bound: domainHash,
+            upper_bound: domainHash,
+            index_position: 4,
+            key_type: "i128"
+        });
+
+        // If domain doesn't exist, return false
+        if (!domainResponse.data.rows || domainResponse.data.rows.length === 0) {
+            return false;
+        }
+
+        // Step 5: Check if domain is not expired
+        const domainData = domainResponse.data.rows[0].data;
+        const now = Math.floor(Date.now() / 1000); // Current time in seconds
+        return domainData.expiration > now;
     } catch (error) {
         // If there's any error in the request, consider it valid
         // This is to prevent valid addresses from being marked invalid due to API issues

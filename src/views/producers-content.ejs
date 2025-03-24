@@ -11,14 +11,14 @@
                         <div class="logo-flag-container">
                             <div class="logo-container">
                                 <% if (producer.branding && producer.branding.logo_256) { %>
-                                    <img src="<%= producer.branding.logo_256 %>" alt="<%= producer.candidate_name %> logo" class="entity-logo">
+                                    <img src="<%= producer.branding.logo_256 %>" class="entity-logo">
                                 <% } else { %>
                                     <div class="entity-logo-placeholder"></div>
                                 <% } %>
                             </div>
                             <% if (producer.flagIconUrl) { %>
                                 <div class="flag-container">
-                                    <img src="<%= producer.flagIconUrl %>" alt="<%= producer.location_country %> flag" class="h-full">
+                                    <img src="<%= producer.flagIconUrl %>" class="h-full">
                                 </div>
                             <% } %>
                         </div>
