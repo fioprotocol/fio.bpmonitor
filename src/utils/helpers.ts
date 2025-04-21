@@ -45,7 +45,13 @@ export function processTotalVotes(votesString: string): number {
 // Generate SHA-1 hash for FIO Handle
 function nameHash(name: string): string {
     const hash = crypto.createHash('sha1');
-    return '0x' + hash.update(name).digest().slice(0, 16).reverse().toString('hex');
+    hash.update(name);
+    // In Node.js, we need to handle the buffer carefully when reversing
+    const digest = hash.digest();
+    const slice = digest.slice(0, 16);
+    // Convert to array, reverse, and convert back to Buffer
+    const reversed = Buffer.from(Array.from(slice).reverse());
+    return '0x' + reversed.toString('hex');
 }
 
 // Checks if FIO Handle is valid
@@ -100,9 +106,22 @@ export async function isFioAddressValid(fio_address: string, apiUrl: string): Pr
         }
 
         // Step 5: Check if domain is not expired
-        const domainData = domainResponse.data.rows[0].data;
+        // Handle different possible data structures
+        const domainRow = domainResponse.data.rows[0];
+        let expirationTime;
+
+        if (domainRow.expiration !== undefined) {
+            expirationTime = domainRow.expiration;
+        } else if (domainRow.data && domainRow.data.expiration !== undefined) {
+            expirationTime = domainRow.data.expiration;
+        }
+
+        if (expirationTime === undefined) {
+            return false;
+        }
+
         const now = Math.floor(Date.now() / 1000); // Current time in seconds
-        return domainData.expiration > now;
+        return expirationTime > now;
     } catch (error) {
         // If there's any error in the request, consider it valid
         // This is to prevent valid addresses from being marked invalid due to API issues
