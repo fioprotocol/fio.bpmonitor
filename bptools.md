@@ -1,3 +1,4 @@
+
 |Chain|Producer|Tool name|Tool Url|
 |---|---|---|---|
 |Mainnet|lion4uxxfbqo|Monitor|https://monitor.fioprotocol.io/|
@@ -29,3 +30,4 @@
 |Testnet|gws1hlwlqhq1|Wrapping Oracle|https://fioprotocol.atlassian.net/wiki/spaces/DAO/pages/544014340/Custodians+and+Oracles|
 |Mainnet|gx5o44uyzscl|Video Tutorials|https://www.youtube.com/@BPKiwi|
 |Mainnet|ymtwytro3ir5|Nodestatus|https://nodestatus.ledgerwise.io/fio|
+|Testnet|lwx22jd5dqf3|Nodestatus|https://nodestatus.ledgerwise.io/fio-test|
